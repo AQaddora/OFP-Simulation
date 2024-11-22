@@ -1,7 +1,3 @@
-Apologies for the oversight. Here's the updated `README.md` with detailed information about the epsilon adjustment to the threshold, ensuring clarity on how it addresses floating-point precision issues.
-
----
-
 # Optimized Flooding Protocol (OFP) Simulation
 <p align="center">
   <img width="500" height="auto" src="./media/ofp_simulation.png">
