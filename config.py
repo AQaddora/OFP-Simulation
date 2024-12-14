@@ -1,7 +1,7 @@
 class Config:
     """Global configuration and state for simulation parameters."""
     epsilon = 1e-6 # To get rid off percise floating point issues..
-
+    topics = ["H", "E", "L", "O"]
     # Parameters
     transmission_range = 100
     threshold_ratio = 0.4

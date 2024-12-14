@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QGridLayout, QMessageBox, QCheckBox,
-    QVBoxLayout, QSizePolicy, QHBoxLayout, QSplitter
+    QApplication, QWidget, QLabel, QComboBox, QLineEdit, QPushButton, QGridLayout, QMessageBox, QCheckBox,
+    QVBoxLayout, QSizePolicy, QHBoxLayout, QSplitter, QFrame
 )
 from PyQt5.QtCore import Qt
 from config import Config
@@ -58,14 +58,35 @@ class OFPSimulationApp(QWidget):
 
         self.is_random_checkbox = QCheckBox("Random Distribution")
         self.is_random_checkbox.setChecked(Config.is_random)
-        
+
         setup_button = QPushButton('Re-setup network')
         setup_button.clicked.connect(self.on_run_setup)
         setup_button.clicked.connect(self.remove_focus)
-        
+
+        # Horizontal line after setup button
+        setup_line = QFrame()
+        setup_line.setFrameShape(QFrame.HLine)
+        setup_line.setFrameShadow(QFrame.Sunken)
+
         send_button = QPushButton('Send new message')
         send_button.clicked.connect(self.on_run_send)
         send_button.clicked.connect(self.remove_focus)
+
+        # Horizontal line after send button
+        send_line = QFrame()
+        send_line.setFrameShape(QFrame.HLine)
+        send_line.setFrameShadow(QFrame.Sunken)
+
+        # Dropdowns for topic and publisher selection
+        self.topic_dropdown = QComboBox()
+        self.topic_dropdown.addItem("None")  # Default option for no topic
+        self.topic_dropdown.addItems(Config.topics)  # Example topics
+
+        self.publisher_dropdown = QComboBox()
+        self.update_publisher_dropdown()  # Dynamically populate with node IDs
+
+        topic_label = QLabel("Select Topic:")
+        publisher_label = QLabel("Select Publisher:")
 
         # Layout setup for inputs
         input_layout = QGridLayout()
@@ -82,7 +103,13 @@ class OFPSimulationApp(QWidget):
         input_layout.addWidget(self.Th_input, 5, 1)
         input_layout.addWidget(self.is_random_checkbox, 6, 0, 1, 2)
         input_layout.addWidget(setup_button, 7, 0, 1, 2)
-        input_layout.addWidget(send_button, 8, 0, 1, 2)
+        input_layout.addWidget(setup_line, 8, 0, 1, 2)
+        input_layout.addWidget(topic_label, 9, 0)
+        input_layout.addWidget(self.topic_dropdown, 9, 1)
+        input_layout.addWidget(publisher_label, 10, 0)
+        input_layout.addWidget(self.publisher_dropdown, 10, 1)
+        input_layout.addWidget(send_button, 11, 0, 1, 2)
+        input_layout.addWidget(send_line, 12, 0, 1, 2)
 
         # Metrics label
         self.params_label = QLabel()
@@ -94,7 +121,7 @@ class OFPSimulationApp(QWidget):
         left_layout.addWidget(self.params_label)
 
         # Plot canvas
-        self.plot_canvas = PlotCanvas(self, width=5, height=5)
+        self.plot_canvas = PlotCanvas(self, width=5, height=5, on_run_send=self.on_run_send)
         self.plot_widget = AspectRatioWidget(self.plot_canvas, aspect_ratio=1.0)
 
         splitter = QSplitter(Qt.Horizontal)
@@ -111,13 +138,20 @@ class OFPSimulationApp(QWidget):
         self.show()
         self.on_run_setup()
 
+    def update_publisher_dropdown(self):
+        """Update the publisher dropdown with node IDs."""
+        self.publisher_dropdown.clear()
+        self.publisher_dropdown.addItem("Random")
+        self.publisher_dropdown.addItems([str(node.id) for node in Config.nodes.values()])
+
     def remove_focus(self):
         self.area_width_input.clearFocus()
         self.nodes_count_input.clearFocus()
         self.R_input.clearFocus()
         self.Th_input.clearFocus()
+        self.publisher_dropdown.clearFocus()
+        self.topic_dropdown.clearFocus()
         self.setFocus()  # Set focus to the main window or parent
-
 
     def update_area(self):
         try:
@@ -130,35 +164,55 @@ class OFPSimulationApp(QWidget):
     def on_run_send(self):
         """Send new message."""
         try:
-            # Run the simulation (no return values needed)
-            ofp_simulation.send_new_message()
+            topic = self.topic_dropdown.currentText()
+            publisher_text = self.publisher_dropdown.currentText()
 
-            # Plot the results from Config
-            self.plot_canvas.plot_network(
-                Config.nodes,
-                Config.message_id,
-                Config.transmission_range,
-                Config.get_threshold(),
-                Config.transmitting_nodes,
-                Config.non_transmitting_nodes,
-                Config.not_received_nodes,
-                Config.source_node_id,
-                Config.area_width ** 2
-            )
+            # Convert "None" topic to None
+            topic = None if topic == "None" else topic
+
+            # Map "Random" to None for publisher
+            publisher_id = None if publisher_text == "Random" else int(publisher_text)
+            
+            # Run topic-based simulation
+            ofp_simulation.send_new_message(publisher_id, topic)
+
+            # Plot the results
+            self.plot_canvas.plot_network()
 
             # Calculate metrics
             total_nodes = Config.node_count
-            received_nodes = len(Config.transmitting_nodes) + len(Config.non_transmitting_nodes)
-            not_received_nodes = len(Config.not_received_nodes) - 1
-            delivery_ratio = (received_nodes / total_nodes) * 100 if total_nodes else 0
-            saved_transmissions = (len(Config.non_transmitting_nodes) / total_nodes) * 100 if total_nodes else 0
+            subscribers = [node for node in Config.nodes.values() if topic in node.subscribed_topics] if topic else Config.nodes.values()
+
+            # For topic-based pub/sub
+            if topic:
+                # Check if any subscriber received the message
+                subscribers_who_received = [
+                    node for node in subscribers if Config.message_id in node.transmitted or Config.message_id in node.distance_to_nearest_tx
+                ]
+                delivery_ratio = 100.0 if len(subscribers_who_received) > 0 else 0.0
+                non_receiving_nodes = len(subscribers) if delivery_ratio == 0 else 0
+                received_nodes = len(subscribers_who_received)
+                # Saved transmissions
+                saved_transmissions = ((total_nodes - len(Config.transmitting_nodes)) / total_nodes) * 100 \
+                    if total_nodes else 0
+
+            # For normal OFP broadcast
+            else:
+                received_nodes = len(Config.transmitting_nodes) + len(Config.non_transmitting_nodes)
+                non_receiving_nodes = total_nodes - received_nodes  # Subtract received nodes from total nodes
+
+                delivery_ratio = (received_nodes / total_nodes) * 100 if total_nodes else 0
+                saved_transmissions = (len(Config.non_transmitting_nodes) / total_nodes) * 100 if total_nodes else 0
 
             # Update the metrics label
             self.params_label.setText(
-                f"\nMetrics:\n"
-                f"Delivery Ratio: {delivery_ratio:.2f}%\n"
-                f"Saved Transmissions: {saved_transmissions:.2f}%\n"
-                f"Nodes that did not receive: {not_received_nodes}"
+                f"""
+                <b>Metrics:</b><br>
+                Received: <b>{received_nodes}</b><br>
+                Nodes that did not receive: <b>{non_receiving_nodes}</b><br>
+                Delivery Ratio: <b>{delivery_ratio:.2f}%</b><br>
+                Saved Transmissions: <b>{saved_transmissions:.2f}%</b><br>
+                """
             )
 
         except Exception as e:
@@ -174,14 +228,18 @@ class OFPSimulationApp(QWidget):
             Config.threshold_ratio = float(self.Th_input.text()) - Config.epsilon
             Config.is_random = self.is_random_checkbox.isChecked()
             Config.nodes = []
-            
+
             # Re-setup the network
             ofp_simulation.setup_network()
+
+            # Update the publisher dropdown
+            self.update_publisher_dropdown()
+
+            # Automatically send a message after setup
             self.on_run_send()
 
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
-
 
 
 if __name__ == '__main__':
