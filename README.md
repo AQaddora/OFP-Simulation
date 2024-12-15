@@ -1,7 +1,7 @@
 # Optimized Flooding Protocol (OFP) Simulation with Topic-Based Extensions
 
 <p align="center">
-  <img width="500" height="auto" src="./media/ofp_simulation.png">
+  <img width="400" height="auto" src="./media/ofp_simulation.png">
 </p>
 
 A Python simulation of the **Optimized Flooding Protocol (OFP)** for wireless ad-hoc networks, **extended** with a **pub-sub (topic-based) forwarding** mechanism. The core logic is based on the paper [Optimized Flooding Protocol for Ad-hoc Networks](https://arxiv.org/pdf/cs/0311013).
