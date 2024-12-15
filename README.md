@@ -1,25 +1,24 @@
-Apologies for the oversight. Here's the updated `README.md` with detailed information about the epsilon adjustment to the threshold, ensuring clarity on how it addresses floating-point precision issues.
+# Optimized Flooding Protocol (OFP) Simulation with Topic-Based Extensions
 
----
-
-# Optimized Flooding Protocol (OFP) Simulation
 <p align="center">
   <img width="500" height="auto" src="./media/ofp_simulation.png">
 </p>
 
+A Python simulation of the **Optimized Flooding Protocol (OFP)** for wireless ad-hoc networks, **extended** with a **pub-sub (topic-based) forwarding** mechanism. The core logic is based on the paper [Optimized Flooding Protocol for Ad-hoc Networks](https://arxiv.org/pdf/cs/0311013).
 
-A Python implementation and simulation of the **Optimized Flooding Protocol (OFP)** for wireless ad-hoc networks, based on the original paper: [Optimized Flooding Protocol for Ad-hoc Networks](https://arxiv.org/pdf/cs/0311013).
+<p align="center">
+  <img width="600" height="auto" src="./media/interface.png">
+</p>
 
-This project provides a simulation environment to study the behavior of the OFP algorithm in wireless networks. It allows users to adjust various parameters, visualize the network topology, and observe how messages propagate through the network using OFP.
+**This simulation** allows you to adjust network parameters, visualize the node topology, and observe how messages propagate under OFP or topic-based rules—all from an interactive GUI.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Command-Line Simulation](#command-line-simulation)
-  - [Graphical Interface](#graphical-interface)
 - [Parameters](#parameters)
+- [Topic-Based Extension \& Metrics](#topic-based-extension--metrics)
 - [Visualization](#visualization)
 - [Example Output](#example-output)
 - [Reference](#reference)
@@ -31,12 +30,13 @@ This project provides a simulation environment to study the behavior of the OFP 
 
 ## Features
 
-- Simulates the **Optimized Flooding Protocol** in wireless ad-hoc networks.
-- Visualizes network topology and message propagation.
-- Adjustable parameters for area size, node count, transmission range, and threshold.
-- Supports both random and grid-based node distribution.
-- Graphical User Interface (GUI) using PyQt5 for interactive simulations.
-- Displays key statistics like delivery ratio and saved transmissions.
+- **Optimized Flooding Protocol (OFP)** for wireless ad-hoc networks.
+- **Topic-based (Pub-Sub) extension**: Nodes subscribe to specific topics and only forward relevant messages.
+- **GUI (PyQt5)** for interactive simulations:
+  - Adjust area size, node count, transmission range, threshold, and more.
+  - Toggle topic-based forwarding or standard OFP broadcast mode.
+- **New metrics**: track topic delivery ratio, percentage of topic-subscribed nodes reached, etc.
+- **Minimal overhead**: epsilon adjustment to thresholds to address floating-point precision.
 
 ---
 
@@ -47,9 +47,9 @@ This project provides a simulation environment to study the behavior of the OFP 
 - **Python 3.x**
 - **pip** (Python package installer)
 
-### Required Python Packages
+### Required Packages
 
-Install the required packages using pip:
+Install the required packages:
 
 ```bash
 pip install PyQt5 matplotlib
@@ -59,163 +59,111 @@ pip install PyQt5 matplotlib
 
 ## Usage
 
-### Command-Line Simulation
-
-Run the simulation from the command line using the `test_simulation.py` script. You can specify the simulation parameters as command-line arguments:
+Launch the **GUI** to configure and run simulations:
 
 ```bash
-python test_simulation.py --area_width 600 --nodes_count 65 --transmission_range 100 --threshold_ratio 1 --is_random False
+python interface.py
 ```
 
-#### Arguments:
+From the GUI, you can:
+- Set **network parameters** (e.g., area width, node count, transmission range, threshold).
+- **Enable or disable** topic-based routing (pub-sub).
+- Visualize real-time propagation of messages.
+- Monitor final statistics (delivery ratio, number of transmissions, topic coverage, etc.).
 
-- `--area_width`: (Default: `600`) Width and height of the square simulation area. The total area is calculated as `area_width^2`.
-- `--nodes_count`: (Default: `65`) Number of nodes in the network.
-- `--transmission_range`: (Default: `100`) Transmission range of each node.
-- `--threshold_ratio`: (Default: `1.0`) Threshold ratio relative to the transmission range. **Internally, this value is slightly decreased by a small `epsilon` (e.g., `1e-6`) to account for floating-point precision issues.** For example, a threshold ratio of `1` means the actual threshold used in the simulation is slightly less than the transmission range, ensuring accurate transmission eligibility.
-- `--is_random`: (Default: `False`) Whether to use random node distribution (`True`) or grid-based distribution (`False`).
-
-**Note:** If arguments are omitted, the script will use the default values.
-
-#### Examples:
-
-1. **Using Default Values:**
-
-   ```bash
-   python test_simulation.py
-   ```
-
-   This will execute the simulation with:
-   - `area_width = 600`
-   - `nodes_count = 65`
-   - `transmission_range = 100`
-   - `threshold_ratio = 1.0`
-   - `is_random = False`
-
-2. **Specifying a Custom Number of Nodes:**
-
-   ```bash
-   python test_simulation.py --nodes_count 80
-   ```
-
-   Sets `nodes_count` to `80`, with other parameters using default values.
-
-3. **Changing the Transmission Range and Threshold Ratio:**
-
-   ```bash
-   python test_simulation.py --transmission_range 120 --threshold_ratio 0.8
-   ```
-
-   Sets `transmission_range` to `120` and `threshold_ratio` to `0.8`.
-
-4. **Placing Nodes Randomly:**
-
-   ```bash
-   python test_simulation.py --is_random
-   ```
-
-   Sets `is_random` to `True`, placing nodes randomly instead of in a grid pattern.
-
----
-
-### Graphical Interface
-
-![interface](/media/ofp_interface.png)
-
-
-For an interactive experience, run the `ofp_interface.py` script:
-
-```bash
-python ofp_interface.py
-```
-
-The GUI allows you to:
-
-- Set simulation parameters like area width, number of nodes, transmission range, and threshold.
-- Choose between random or grid-based node distribution.
-- Visualize the network and observe message propagation in real-time.
-- View statistics such as delivery ratio and percentage of saved transmissions.
+All configuration details (e.g., topics, threshold ratio, epsilon) are loaded from **`config.py`**, but can be overridden interactively in the interface.
 
 ---
 
 ## Parameters
 
-- **Area Width (`area_width`)**: The dimensions of the square simulation area. The total area is calculated as `area_width^2`.
-- **Number of Nodes (`nodes_count`)**: Total nodes in the network.
-- **Transmission Range (`transmission_range`)**: Maximum distance a node can transmit a message.
-- **Threshold Ratio (`threshold_ratio`)**: Determines if a node should transmit a received message based on its distance to the nearest transmitting node. **Internally, the threshold is slightly decreased by a small `epsilon` (e.g., `1e-6`) to account for floating-point precision issues.** For example, a `threshold_ratio` of `1` means the actual threshold used is slightly less than the transmission range, ensuring nodes are accurately evaluated for transmission eligibility.
-- **Random Distribution (`is_random`)**: If checked, nodes are placed randomly; otherwise, they are placed in a grid pattern.
+**Global parameters** are defined in **`config.py`**, including:
+- **`area_width`**: Size of the square simulation area (width × height).
+- **`node_count`**: Total number of nodes placed in the network.
+- **`transmission_range`**: Wireless range for each node.
+- **`threshold_ratio`**: Fraction of `transmission_range` used to determine if a node rebroadcasts.
+- **`topics`**: List of string identifiers for the pub-sub approach.
+- **`epsilon`**: A small float (e.g., `1e-6`) subtracted from `(threshold_ratio * transmission_range)` to mitigate floating-point inaccuracies.
+
+However, **the GUI** provides a **user-friendly** way to adjust these without modifying code files.
+
+---
+
+## Topic-Based Extension & Metrics
+
+When **pub-sub** is **enabled** in the interface:
+- Nodes **only forward** messages if the **topic** is in their subscription or if **neighbors** rely on it.
+- **New Metrics** include:
+  - **Topic Delivery Ratio**: the percentage of subscribed nodes that actually received the message.
+  - **Per-Topic Transmission Count**: how many nodes forwarded messages for a particular topic.
+
+**Implementation Details**:
+- **`ofp_simulation.py`**: Core logic, including OFP geometry-based logic and pub-sub constraints.
+- Distance threshold & delays remain consistent with the original OFP.
 
 ---
 
 ## Visualization
 
-The simulation visualizes the network and message propagation using color-coded nodes:
+The **visualization** (powered by `plot_network.py`) draws the network topology:
 
-- **Red Nodes**: Nodes that **transmitted** the message.
-- **Green Nodes**: Nodes that **received** the message but did **not transmit**.
-- **Blue Nodes**: Nodes that did **not receive** the message.
-- **Black Node**: The **source node** that initiated the message.
-- **Circles**: Represent the transmission range of transmitting nodes.
+- **Red**: Nodes that **transmitted** the message.
+- **Green**: Nodes that **received** the message but **did not transmit**.
+- **Blue**: Nodes that **did not receive** the message.
+- **Black**: The **source node**.
+- **Transmission Circles**: Show the active broadcasting range.
+
+In **topic-based** mode, additional color coding or legend entries can reflect topic subscriptions (optional).
 
 ---
 
 ## Example Output
 
-After running the simulation, you will see:
+1. **Network Plot**:
+   - Node coloring (red/green/blue/black).
+   - Circles for transmission range.
+2. **Metrics**:
+   - Threshold used (with epsilon).
+   - Delivery ratio overall and **per-topic**.
+   - Transmission counts or percentage of nodes who saved transmissions.
 
-- A plot of the network with nodes and transmission ranges.
-- Statistics such as:
-  - **Threshold**: The threshold value used (accounting for epsilon adjustment).
-  - **Transmission Range**: The transmission range of nodes.
-  - **Delivery Ratio**: Percentage of nodes that received the message.
-  - **Saved Transmissions**: Percentage of nodes that received but did not transmit, indicating efficiency.
-------
-![output](/media/example_output.png)
-------
+---
 
 ## Reference
 
-This project is based on the following paper:
-
-- **Optimized Flooding Protocol for Ad-hoc Networks**
-  - [arXiv:cs/0311013](https://arxiv.org/abs/cs/0311013)
+- [**Optimized Flooding Protocol for Ad-hoc Networks**](https://arxiv.org/abs/cs/0311013)
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Currently, the simulation transmits a message from a random node on the generated network.
+1. **Fork** this repository
+2. **Create a new branch** for your feature or bug fix
+3. **Submit a Pull Request** with details of your changes
 
-To contribute:
-
-1. **Fork the repository.**
-2. **Create a new branch** for your feature or bug fix.
-3. **Submit a pull request** with detailed information about your changes.
+We welcome **improvements** such as mobility models, multi-topic concurrency, advanced subscription logic, etc.
 
 ---
 
 ## TODO
 
-- Implement **moving nodes** to simulate node mobility.
-- Support **transmitting different messages** to mimic real network traffic.
-- Introduce **multiple source nodes** to study concurrent transmissions.
-- Enhance the GUI with additional controls and real-time statistics.
-- Optimize the simulation for larger and more complex networks.
+- **Mobility**: Introduce node movements (Random Walk or other models).
+- **Multi-topic concurrency**: Broadcast multiple topics at once to see interaction effects.
+- **Scale up**: Optimize for thousands of nodes and complex topologies.
+- **Real-time metrics**: Show graphs as simulation runs, updated continuously in the GUI.
 
 ---
 
 ## License
 
-[MIT Licence](./LICENCE)
----
-
-**Note**: This project is intended for educational and research purposes, providing insights into the Optimized Flooding Protocol and its impact on network performance.
-
-Feel free to explore, modify, and utilize this simulation to further understand the dynamics of wireless ad-hoc networks and the Optimized Flooding Protocol.
+[MIT License](./LICENCE)
 
 ---
 
-**Additional Explanation on Epsilon Adjustment:**
+### Additional Note on Epsilon Adjustment
 
-To ensure accurate simulation results, especially when dealing with floating-point precision issues, the threshold value (`Th`) is internally adjusted by subtracting a small epsilon (`epsilon = 1e-6`). This adjustment ensures that nodes are correctly evaluated for transmission eligibility without being erroneously excluded due to minor numerical inaccuracies. For instance, a threshold ratio of `1` implies that the actual threshold used is `transmission_range - epsilon`, effectively mitigating potential floating-point discrepancies.
+To mitigate floating-point rounding issues, the **actual** threshold is calculated as:  
+```
+threshold = threshold_ratio * transmission_range - epsilon
+```
+This ensures nodes near exact boundary distances are properly evaluated for re-broadcast decisions.

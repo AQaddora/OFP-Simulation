@@ -134,7 +134,7 @@ class OFPSimulationApp(QWidget):
         self.setLayout(main_layout)
 
         self.setWindowTitle('Optimized Flooding Protocol Simulation')
-        self.setGeometry(100, 100, 935, 600)
+        self.setGeometry(100, 100, 1000, 650)
         self.show()
         self.on_run_setup()
 
@@ -173,8 +173,13 @@ class OFPSimulationApp(QWidget):
             # Map "Random" to None for publisher
             publisher_id = None if publisher_text == "Random" else int(publisher_text)
             
-            # Run topic-based simulation
-            ofp_simulation.send_new_message(publisher_id, topic)
+            # Run send message as normal OFP to calculate OFP Saved Transmissions
+            ofp_simulation.send_new_message(publisher_id, None)
+            ofp_transmissions = len(Config.transmitting_nodes)
+
+            if topic:
+                # Run topic-based simulation
+                ofp_simulation.send_new_message(publisher_id, topic)
 
             # Plot the results
             self.plot_canvas.plot_network()
@@ -192,31 +197,45 @@ class OFPSimulationApp(QWidget):
                 delivery_ratio = 100.0 if len(subscribers_who_received) > 0 else 0.0
                 non_receiving_nodes = len(subscribers) if delivery_ratio == 0 else 0
                 received_nodes = len(subscribers_who_received)
-                # Saved transmissions
+                # Saved transmissions for topic-based pub/sub
                 saved_transmissions = ((total_nodes - len(Config.transmitting_nodes)) / total_nodes) * 100 \
                     if total_nodes else 0
-
-            # For normal OFP broadcast
+                topic_saved_transmissions = (1 - ( len(Config.transmitting_nodes) / ofp_transmissions)) * 100 if ofp_transmissions else 0
             else:
+                # For normal OFP broadcast
                 received_nodes = len(Config.transmitting_nodes) + len(Config.non_transmitting_nodes)
                 non_receiving_nodes = total_nodes - received_nodes  # Subtract received nodes from total nodes
 
                 delivery_ratio = (received_nodes / total_nodes) * 100 if total_nodes else 0
                 saved_transmissions = (len(Config.non_transmitting_nodes) / total_nodes) * 100 if total_nodes else 0
+                topic_saved_transmissions = None  # Not applicable for OFP
 
             # Update the metrics label
-            self.params_label.setText(
-                f"""
+            metrics_text = f"""
                 <b>Metrics:</b><br>
                 Received: <b>{received_nodes}</b><br>
-                Nodes that did not receive: <b>{non_receiving_nodes}</b><br>
+                Not Received: <b>{non_receiving_nodes}</b><br>
                 Delivery Ratio: <b>{delivery_ratio:.2f}%</b><br>
+                <br>
+                Transmitted: <b>{len(Config.transmitting_nodes)}</b><br>
+                Transmition Ratio: <b>{(len(Config.transmitting_nodes) / Config.node_count * 100):.2f}%</b><br>
                 Saved Transmissions: <b>{saved_transmissions:.2f}%</b><br>
+            """
+            if topic:
+                metrics_text += f"""
+                <br>
+                Background <b>OFP</b> run for comparison purposes:<br>
+                OFP Transmitted: <b>{ofp_transmissions}</b><br>
+                OFP Transmition Ratio: <b>{(ofp_transmissions / Config.node_count * 100):.2f}%</b><br>
+                <br>
+                Pub-Sub Saved Transmissions: <b>{topic_saved_transmissions:.2f}%</b><br>
                 """
-            )
+
+            self.params_label.setText(metrics_text)
 
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+
 
     def on_run_setup(self):
         """Update Config and run the simulation."""

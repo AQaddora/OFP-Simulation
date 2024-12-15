@@ -27,23 +27,22 @@ class Node:
         self.id = node_id
         self.position = position
         self.subscribed_topics = subscribed_topics or []  # List of subscribed topics
+        self.neighbor_subscriptions = set()  # Topics learned from neighbors
         self.neighbors = []
         self.transmitted = set()
         self.distance_to_nearest_tx = {}
 
     def add_neighbor(self, neighbor):
-        """Add a neighboring node within the transmission range."""
+        """Add a neighboring node within the transmission range and update subscriptions."""
         self.neighbors.append(neighbor)
+        # Update neighbor subscriptions based on the new neighbor's topics
+        self.neighbor_subscriptions.update(neighbor.subscribed_topics)
 
     def receive_message(self, topic, message_id, L2, from_node, current_time, event_queue, event_id_counter, source_position):
         """Handle receiving a message."""
         if message_id in self.transmitted:
             return  # Already transmitted this message
-
-        # Topic-based filtering
-        if topic and topic not in self.subscribed_topics:
-            return  # Ignore messages for topics this node is not subscribed to
-
+        
         # Update distance to nearest transmitting node
         dn = self.distance_to_nearest_tx.get(message_id, float('inf'))
         dist_to_sender = distance(self.position, from_node.position)
@@ -68,15 +67,19 @@ class Node:
         transmission_time = current_time + d
         event_id = next(event_id_counter)
 
-        if topic and topic in self.subscribed_topics:
-            # Subscribers don't retransmit the message
-            return
+        # Check forwarding conditions
+        should_forward = (
+            not topic in self.subscribed_topics and
+            topic in self.neighbor_subscriptions
+        ) or topic == None
 
-        heapq.heappush(event_queue, (transmission_time, event_id, self.transmit_message, topic, message_id, source_position))
+        if should_forward:
+            # Forward to neighbors
+            heapq.heappush(event_queue, (transmission_time, event_id, self.transmit_message, topic, message_id, source_position))
 
     def transmit_message(self, topic, message_id, source_position, event_queue, current_time, event_id_counter):
         """Transmit a message to neighbors."""
-        if message_id in self.transmitted:
+        if message_id in self.transmitted or topic in self.subscribed_topics:
             return
 
         self.transmitted.add(message_id)
@@ -84,6 +87,10 @@ class Node:
 
         for neighbor in self.neighbors:
             neighbor.receive_message(topic, message_id, self.position, self, current_time, event_queue, event_id_counter, source_position)
+
+        # Propagate subscription knowledge to neighbors
+        for neighbor in self.neighbors:
+            neighbor.neighbor_subscriptions.update(self.subscribed_topics)
 
 def setup_network():
     """Set up the network using global parameters from Config."""
@@ -206,15 +213,10 @@ def send_new_message(publisher_id=None, topic=None):
 
     # Mark the source node as transmitted
     source_node.transmitted.add(Config.message_id)
-
-    # Broadcast message to neighbors
-    for neighbor in source_node.neighbors:
-        if topic:
-            # Topic-based forwarding: only send to subscribers
+    if not topic in source_node.subscribed_topics:
+        # Broadcast message to neighbors that have subscribed
+        for neighbor in source_node.neighbors:
             neighbor.receive_message(topic, Config.message_id, L2, source_node, current_time, event_queue, event_id_counter, source_node.position)
-        else:
-            # Standard OFP
-            neighbor.receive_message(None, Config.message_id, L2, source_node, current_time, event_queue, event_id_counter, source_node.position)
 
     # Process the event queue
     while event_queue:
